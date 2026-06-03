@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IsGo - Control Panel Realtime & AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-sidebar: #1e293b;
+            --accent-purple: #6366f1;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --sidebar-width: 260px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; height: 100vh; }
+
+        /* --- PANTALLA DE ACCESO --- */
+        #auth-screen {
+            display: flex; justify-content: center; align-items: center; height: 100vh; width: 100vw;
+            position: fixed; top: 0; left: 0; background-color: var(--bg-dark); z-index: 9999;
+        }
+        .auth-card {
+            background-color: var(--bg-sidebar); padding: 2.5rem; border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 90%; max-width: 400px; border: 1px solid var(--border-color); text-align: center;
+        }
+        .auth-logo { font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .auth-logo i { color: var(--accent-purple); }
+        .input-group { margin-bottom: 1.2rem; text-align: left; }
+        .input-group label { display: block; color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.85rem; }
+        .input-group input { width: 100%; padding: 0.75rem 1rem; background-color: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 8px; color: white; outline: none; }
+        .auth-btn { width: 100%; padding: 0.75rem; background-color: var(--accent-purple); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 0.5rem; }
+        .toggle-auth-btn { background: none; border: none; color: var(--accent-purple); cursor: pointer; font-weight: bold; margin-top: 1rem; font-size: 0.85rem; }
+
+        /* --- NOTIFICACIONES FLASH IA (CON X) --- */
+        #notification-zone { margin-bottom: 1.5rem; width: 100%; }
+        .ai-notification {
+            background: linear-gradient(135deg, #1e1b4b 0%, #2e2a78 100%);
+            border-left: 4px solid var(--accent-purple); padding: 1.2rem; border-radius: 12px;
+            margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.25); border: 1px solid var(--border-color);
+            animation: slideIn 0.3s ease;
+        }
+        .ai-notif-content { font-size: 0.9rem; line-height: 1.4; color: #f1f5f9; }
+        .ai-notif-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; padding-left: 1rem; }
+        .ai-notif-close:hover { color: var(--accent-red); }
+
+        /* --- ESTRUCTURA GENERAL --- */
+        #app-container { display: none; flex-direction: column; height: 100vh; }
+        .topbar { display: none; background-color: var(--bg-sidebar); padding: 1rem; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
+        .menu-toggle { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; }
+        
+        .sidebar { width: var(--sidebar-width); background-color: var(--bg-sidebar); height: 100%; position: fixed; top: 0; left: 0; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem; z-index: 99; }
+        .brand { font-size: 1.8rem; font-weight: bold; display: flex; align-items: center; gap: 10px; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); }
+        .brand i { color: var(--accent-purple); }
+        .menu-list { list-style: none; margin-top: 1.5rem; flex-grow: 1; }
+        .menu-item { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 0.4rem; cursor: pointer; display: flex; align-items: center; gap: 12px; color: var(--text-muted); transition: all 0.3s; }
+        .menu-item:hover, .menu-item.active { background-color: rgba(99, 102, 241, 0.15); color: var(--text-main); }
+        .menu-item.active i { color: var(--accent-purple); }
+        
+        .logout-btn { background: none; border: none; color: var(--accent-red); cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; padding: 0.5rem; width: 100%; justify-content: center; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.2); margin-bottom: 1rem; }
+        .logout-btn:hover { background: rgba(239, 68, 68, 0.1); }
+        .user-footer { display: flex; align-items: center; gap: 12px; padding-top: 1rem; border-top: 1px solid var(--border-color); }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background-color: var(--accent-purple); display: flex; justify-content: center; align-items: center; font-weight: bold; color: white; }
+        
+        .main-content { margin-left: var(--sidebar-width); padding: 2rem; flex-grow: 1; overflow-y: auto; }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        
+        /* Grids y Paneles */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background-color: var(--bg-sidebar); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .stat-info h3 { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; }
+        .stat-info p { font-size: 1.6rem; font-weight: bold; }
+        .stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 1.2rem; }
+        
+        .content-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; }
+        @media (min-width: 1024px) { .content-grid { grid-template-columns: 1fr 1.8fr; } }
+        .card-panel { background-color: var(--bg-sidebar); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 1.5rem; }
+        
+        /* Chat Box de Gemini */
+        .chat-container-box { display: flex; flex-direction: column; height: 400px; background-color: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        .chat-messages { flex-grow: 1; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; }
+        .chat-msg { max-width: 80%; padding: 0.75rem 1rem; border-radius: 12px; font-size: 0.9rem; line-height: 1.4; }
+        .chat-msg.user { align-self: flex-end; background-color: var(--accent-purple); color: white; border-bottom-right-radius: 2px; }
+        .chat-msg.gemini { align-self: flex-start; background-color: var(--bg-sidebar); color: #e2e8f0; border-bottom-left-radius: 2px; border: 1px solid var(--border-color); }
+        .chat-input-area { display: flex; border-top: 1px solid var(--border-color); background-color: var(--bg-sidebar); }
+        .chat-input-area input { flex-grow: 1; padding: 1rem; background: none; border: none; color: white; outline: none; }
+        .chat-send-btn { padding: 0 1.5rem; background-color: var(--accent-purple); color: white; border: none; cursor: pointer; font-weight: bold; }
+
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.65rem 0.8rem; background-color: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 6px; color: white; outline: none; }
+        .btn-action { width: 100%; padding: 0.7rem; background-color: var(--accent-purple); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        
+        /* Tablas */
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; }
+        .badge { padding: 0.25rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-weight: bold; display: inline-block; }
+        .badge-propuesta { background-color: rgba(234, 179, 8, 0.15); color: #eab308; }
+        .badge-web { background-color: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+        .badge-activo { background-color: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .social-actions { display: flex; gap: 8px; }
+        .btn-social { width: 32px; height: 32px; border-radius: 50%; display: flex; justify-content: center; align-items: center; text-decoration: none; color: white; font-size: 0.85rem; }
+        .btn-wa { background-color: #25D366; }
+        .btn-ig { background-color: #E1306C; }
+        .btn-delete { background-color: rgba(239, 68, 68, 0.15); color: var(--accent-red); border: none; cursor: pointer; padding: 6px; border-radius: 6px; }
+
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 768px) {
+            .topbar { display: flex; }
+            .sidebar { transform: translateX(-100%); top: 60px; height: calc(100% - 60px); }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; padding-top: 5rem; padding-left: 1rem; padding-right: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen">
+        <div class="auth-card" id="login-card">
+            <div class="auth-logo"><i class="fa-solid fa-rocket"></i> IsGo</div>
+            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">Control Center & Cloud Database</p>
+            <form onsubmit="handleLogin(event)">
+                <div class="input-group"><label>Correo Electrónico</label><input type="email" id="login-email" value="isgoloyalty@gmail.com" required></div>
+                <div class="input-group"><label>Contraseña</label><input type="password" id="login-password" placeholder="Tu contraseña maestra" required></div>
+                <button type="submit" class="auth-btn">Iniciar Sesión</button>
+            </form>
+            <button class="toggle-auth-btn" onclick="toggleAuthMode(true)">¿No tienes cuenta? Regístrate aquí</button>
+        </div>
+
+        <div class="auth-card" id="register-card" style="display: none;">
+            <div class="auth-logo"><i class="fa-solid fa-rocket"></i> Registro</div>
+            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">Crea un usuario administrador</p>
+            <form onsubmit="handleRegister(event)">
+                <div class="input-group"><label>Nombre Completo</label><input type="text" id="reg-nombre" placeholder="Ej. Isaac IsGo" required></div>
+                <div class="input-group"><label>Correo Electrónico</label><input type="email" id="reg-email" placeholder="ejemplo@isgo.com" required></div>
+                <div class="input-group"><label>Contraseña Maestra</label><input type="password" id="reg-password" placeholder="Crea tu contraseña" required></div>
+                <button type="submit" class="auth-btn" style="background-color: var(--accent-green);">Crear Cuenta</button>
+            </form>
+            <button class="toggle-auth-btn" onclick="toggleAuthMode(false)">¿Ya tienes cuenta? Inicia sesión</button>
+        </div>
+    </div>
+
+    <div id="app-container">
+        <div class="topbar">
+            <div class="brand"><i class="fa-solid fa-rocket"></i> IsGo</div>
+            <button class="menu-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+        </div>
+
+        <div class="sidebar" id="sidebar">
+            <div>
+                <div class="brand"><i class="fa-solid fa-rocket"></i> IsGo</div>
+                <ul class="menu-list">
+                    <li class="menu-item active" onclick="switchView('dashboard')"><i class="fa-solid fa-chart-pie"></i> Dashboard</li>
+                    <li class="menu-item" onclick="switchView('clientes')"><i class="fa-solid fa-users"></i> Clientes / CRM</li>
+                    <li class="menu-item" onclick="switchView('consultor')"><i class="fa-solid fa-brain"></i> Consultor Gemini IA</li>
+                    <li class="menu-item" onclick="switchView('finanzas')"><i class="fa-solid fa-wallet"></i> Finanzas</li>
+                    <li class="menu-item" onclick="switchView('roi')"><i class="fa-solid fa-calculator"></i> Simulador ROI</li>
+                    <li class="menu-item" onclick="switchView('config')"><i class="fa-solid fa-gears"></i> Ajustes / Keys</li>
+                </ul>
+            </div>
+
+            <div>
+                <button class="logout-btn" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión</button>
+                <div class="user-footer">
+                    <div class="user-avatar" id="user-avatar-lbl">I</div>
+                    <div>
+                        <h4 id="user-name-lbl">Isaac IsGo</h4>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Administrador Cloud</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div id="view-dashboard" class="view-section active">
+                <div class="view-header">
+                    <h1 id="dash-welcome">Bienvenido</h1>
+                    <p>Monitoreo unificado y sincronización en la nube.</p>
+                </div>
+                
+                <div id="notification-zone"></div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-info"><h3>Prospectos Totales</h3><p id="dash-total-clientes">0</p></div>
+                        <div class="stat-icon" style="background: rgba(99,102,241,0.1); color: var(--accent-purple);"><i class="fa-solid fa-user-group"></i></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info"><h3>Caja Comercial (Neto)</h3><p id="dash-balance">$0.00</p></div>
+                        <div class="stat-icon" id="dash-balance-icon" style="background: rgba(16,185,129,0.1); color: var(--accent-green);"><i class="fa-solid fa-scale-balanced"></i></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-clientes" class="view-section">
+                <div class="view-header"><h1>CRM Realtime Cloud</h1><p>Los registros guardados aquí se actualizarán al instante en tu celular.</p></div>
+                <div class="content-grid">
+                    <div class="card-panel">
+                        <h2>Registrar Prospecto</h2>
+                        <form id="cliente-form" onsubmit="addCliente(event)">
+                            <div class="form-group"><label>Nombre del Contacto</label><input type="text" id="c-nombre" required></div>
+                            <div class="form-group"><label>Nombre del Negocio</label><input type="text" id="c-negocio" required></div>
+                            <div class="form-group"><label>WhatsApp (10 dígitos)</label><input type="tel" id="c-whatsapp" required></div>
+                            <div class="form-group"><label>Instagram (Sin @)</label><input type="text" id="c-insta"></div>
+                            <div class="form-group">
+                                <label>Estatus Comercial</label>
+                                <select id="c-estatus">
+                                    <option value="Propuesta">Solo Propuesta</option>
+                                    <option value="Página Solicitada">Página Solicitada</option>
+                                    <option value="Sistema Activo">Sistema Activo</option>
+                                </select>
+                            </div>
+                            <div class="form-group"><label>Bitácora de Notas</label><textarea id="c-notas" rows="2"></textarea></div>
+                            <button type="submit" class="btn-action">Guardar en la Nube</button>
+                        </form>
+                    </div>
+                    <div class="card-panel">
+                        <h2>Leads Activos</h2>
+                        <div class="table-responsive">
+                            <table>
+                                <thead><tr><th>Negocio / Contacto</th><th>Estatus</th><th>Enlaces</th><th>Acción</th></tr></thead>
+                                <tbody id="tabla-clientes-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-consultor" class="view-section">
+                <div class="view-header"><h1>Consultor de Negocios Inteligente (Gemini 1.5)</h1><p>Explícale a la IA cómo funciona cualquier negocio para recibir estrategias a medida.</p></div>
+                <div class="content-grid" style="grid-template-columns: 1fr;">
+                    <div class="card-panel">
+                        <h2>Chat Directo con la IA</h2>
+                        
+                        <div id="api-warning-banner" style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--accent-red); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; color: #fca5a5;">
+                            <i class="fa-solid fa-triangle-exclamation"></i> <strong>Falta tu API Key de Gemini:</strong> Dirígete a la pestaña de <strong>Ajustes / Keys</strong> para activar el motor de Inteligencia Artificial de forma privada.
+                        </div>
+
+                        <div class="chat-container-box">
+                            <div class="chat-messages" id="chat-messages-zone">
+                                <div class="chat-msg gemini">¡Hola! Soy tu Consultor IsGo potenciado por Gemini. Explícame el giro de tu negocio o el de tus clientes (por ejemplo, una joyería de plata o una clínica estética) y desarrollemos estrategias de lealtad efectivas.</div>
+                            </div>
+                            <div class="chat-input-area">
+                                <input type="text" id="chat-user-input" placeholder="Escribe tu consulta aquí sobre cualquier negocio...">
+                                <button class="chat-send-btn" onclick="enviarMensajeGemini()">Preguntar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-finanzas" class="view-section">
+                <div class="view-header"><h1>Libro Contable Sincronizado</h1><p>Administración compartida de ingresos y egresos comerciales.</p></div>
+                <div class="content-grid">
+                    <div class="card-panel">
+                        <h2>Registrar Movimiento</h2>
+                        <form id="transaccion-form" onsubmit="addTransaccion(event)">
+                            <div class="form-group">
+                                <label>Tipo de Flujo</label>
+                                <select id="f-tipo"><option value="ingreso">Ingreso</option><option value="gasto">Gasto</option></select>
+                            </div>
+                            <div class="form-group"><label>Concepto</label><input type="text" id="f-concepto" required></div>
+                            <div class="form-group"><label>Monto ($)</label><input type="number" step="0.01" id="f-monto" required></div>
+                            <button type="submit" class="btn-action">Registrar Flujo</button>
+                        </form>
+                    </div>
+                    <div class="card-panel">
+                        <h2>Historial Financiero</h2>
+                        <div class="table-responsive">
+                            <table>
+                                <thead><tr><th>Concepto</th><th>Tipo</th><th>Monto</th><th>Eliminar</th></tr></thead>
+                                <tbody id="tabla-finanzas-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-roi" class="view-section">
+                <div class="view-header"><h1>Simulador de Retorno (ROI)</h1><p>Calcula el punto de equilibrio para convencer a tus prospectos del CRM.</p></div>
+                <div class="card-panel" style="max-width: 500px; margin: 0 auto;">
+                    <div class="form-group"><label>Inversión en IsGo ($)</label><input type="number" id="roi-inversion" value="5000" oninput="calcularROI()"></div>
+                    <div class="form-group"><label>Ganancia Promedio por Venta ($)</label><input type="number" id="roi-ganancia" value="250" oninput="calcularROI()"></div>
+                    <div class="form-group"><label>Visitas Mensuales por Cliente Fiel</label><input type="number" id="roi-visitas" value="3" oninput="calcularROI()"></div>
+                    <div style="background: var(--bg-dark); padding: 1.5rem; border-radius: 8px; text-align: center; margin-top: 1.5rem;">
+                        <h3>Clientes Recurrentes Necesarios</h3>
+                        <p id="roi-resultado-clientes" style="font-size: 2.5rem; color: var(--accent-green); font-weight: bold;">7</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-config" class="view-section">
+                <div class="view-header"><h1>Ajustes de Seguridad e Integraciones</h1><p>Administra tus credenciales de forma privada sin exponerlas en internet.</p></div>
+                <div class="card-panel" style="max-width: 550px;">
+                    <h2><i class="fa-solid fa-key" style="color:var(--accent-purple);"></i> Configurar Gemini API Key</h2>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.2rem; margin-top: 0.4rem;">Pega tu clave generada en Google AI Studio aquí. Se almacenará de forma local únicamente en este dispositivo.</p>
+                    <div class="form-group">
+                        <label>Tu Gemini API Key</label>
+                        <input type="password" id="input-gemini-key" placeholder="Pega tu clave aquí (Empieza con AQ...)">
+                    </div>
+                    <button class="btn-action" onclick="guardarApiKeyPrivada()" style="background-color: var(--accent-green);"><i class="fa-solid fa-floppy-disk"></i> Guardar Llave de IA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        // Importación de módulos oficiales compatibles con Web Apps independientes
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Tu configuración oficial de Firebase (Pública y segura para el Frontend)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBaqzW-TbAVHEqaJNJ7jXxNMDpKZY4X77Y",
+            authDomain: "isgo-3e784.firebaseapp.com",
+            projectId: "isgo-3e784",
+            storageBucket: "isgo-3e784.firebasestorage.app",
+            messagingSenderId: "825555400766",
+            appId: "1:825555400766:web:8612ffb964ee0561e4396f",
+            measurementId: "G-VQ7G41KNLB"
+        };
+
+        // Inicialización de la base de datos global
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Variables de Control Local de Datos y Sesiones
+        let usuariosDB = JSON.parse(localStorage.getItem('isgo_users_db')) || [
+            { email: "isgoloyalty@gmail.com", password: "IsGO0307", nombre: "Isaac IsGo" }
+        ];
+        let usuarioActivo = JSON.parse(localStorage.getItem('isgo_active_session')) || null;
+        
+        let globalClientes = [];
+        let globalTransacciones = [];
+
+        // --- SISTEMA DE CONTROL DE SESIONES ---
+        window.toggleAuthMode = function(toRegister) {
+            document.getElementById('login-card').style.display = toRegister ? 'none' : 'block';
+            document.getElementById('register-card').style.display = toRegister ? 'block' : 'none';
+        }
+
+        window.handleRegister = function(e) {
+            e.preventDefault();
+            const email = document.getElementById('reg-email').value.trim();
+            const password = document.getElementById('reg-password').value;
+            const nombre = document.getElementById('reg-nombre').value.trim();
+
+            if (usuariosDB.some(u => u.email === email)) {
+                alert('Este correo electrónico ya está registrado en el sistema.');
+                return;
+            }
+
+            usuariosDB.push({ email, password, nombre });
+            localStorage.setItem('isgo_users_db', JSON.stringify(usuariosDB));
+            alert('¡Cuenta creada con éxito! Ya puedes iniciar sesión con tus nuevas credenciales.');
+            e.target.reset();
+            window.toggleAuthMode(false);
+        }
+
+        window.handleLogin = function(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value.trim();
+            const pass = document.getElementById('login-password').value;
+
+            const user = usuariosDB.find(u => u.email === email && u.password === pass);
+
+            if (user) {
+                usuarioActivo = user;
+                localStorage.setItem('isgo_active_session', JSON.stringify(usuarioActivo));
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('app-container').style.display = 'flex';
+                conectarNubeRealtime();
+            } else {
+                alert('Credenciales incorrectas. Verifica tu contraseña.');
+            }
+        }
+
+        window.handleLogout = function() {
+            localStorage.removeItem('isgo_active_session');
+            location.reload();
+        }
+
+        // --- CONEXIÓN DE BASE DE DATOS EN TIEMPO REAL (CELULAR <=> COMPUTADORA) ---
+        async function conectarNubeRealtime() {
+            if (!usuarioActivo) return;
+
+            document.getElementById('user-name-lbl').innerText = usuarioActivo.nombre;
+            document.getElementById('dash-welcome').innerText = `Bienvenido, ${usuarioActivo.nombre.split(' ')[0]}`;
+            document.getElementById('user-avatar-lbl').innerText = usuarioActivo.nombre.charAt(0).toUpperCase();
+
+            // Comprobar estado de la API Key guardada de forma local privada
+            verificarEstadoApiKey();
+
+            const docRef = doc(db, "plataforma", "isgo_master_data");
+
+            // Escuchador en vivo de Firestore Database
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    globalClientes = data.clientes || [];
+                    globalTransacciones = data.transacciones || [];
+                } else {
+                    setDoc(docRef, { clientes: [], transacciones: [] });
+                    globalClientes = [];
+                    globalTransacciones = [];
+                }
+                renderizarComponentes();
+                window.calcularROI();
+            });
+        }
+
+        // --- ACCIONES CRM (GUARDAR Y ELIMINAR DIRECTO EN LA NUBE) ---
+        window.addCliente = async function(e) {
+            e.preventDefault();
+            const nuevoCliente = {
+                id: Date.now(),
+                nombre: document.getElementById('c-nombre').value.trim(),
+                negocio: document.getElementById('c-negocio').value.trim(),
+                whatsapp: document.getElementById('c-whatsapp').value.trim(),
+                insta: document.getElementById('c-insta').value.trim().replace('@', ''),
+                estatus: document.getElementById('c-estatus').value,
+                notas: document.getElementById('c-notas').value.trim()
+            };
+
+            try {
+                const docRef = doc(db, "plataforma", "isgo_master_data");
+                await updateDoc(docRef, {
+                    clientes: arrayUnion(nuevoCliente)
+                });
+                document.getElementById('cliente-form').reset();
+            } catch (err) {
+                alert("Error al subir a la nube: " + err.message);
+            }
+        }
+
+        window.deleteCliente = async function(id) {
+            if(confirm('¿Seguro que deseas eliminar este prospecto del CRM global? Se borrará de todos tus dispositivos.')) {
+                const objetivo = globalClientes.find(c => c.id === id);
+                if(!objetivo) return;
+
+                const docRef = doc(db, "plataforma", "isgo_master_data");
+                await updateDoc(docRef, {
+                    clientes: arrayRemove(objetivo)
+                });
+            }
+        }
+
+        // --- ACCIONES CONTABLES EN LA NUBE ---
+        window.addTransaccion = async function(e) {
+            e.preventDefault();
+            const nuevaTx = {
+                id: Date.now(),
+                concepto: document.getElementById('f-concepto').value.trim(),
+                tipo: document.getElementById('f-tipo').value,
+                monto: parseFloat(document.getElementById('f-monto').value)
+            };
+
+            try {
+                const docRef = doc(db, "plataforma", "isgo_master_data");
+                await updateDoc(docRef, {
+                    transacciones: arrayUnion(nuevaTx)
+                });
+                document.getElementById('transaccion-form').reset();
+            } catch (err) {
+                alert("Error al registrar movimiento: " + err.message);
+            }
+        }
+
+        window.deleteTransaccion = async function(id) {
+            const objetivo = globalTransacciones.find(t => t.id === id);
+            if(!objetivo) return;
+
+            const docRef = doc(db, "plataforma", "isgo_master_data");
+            await updateDoc(docRef, {
+                transacciones: arrayRemove(objetivo)
+            });
+        }
+
+        // --- GESTIÓN PRIVADA Y SEGURA DE API KEY DE IA ---
+        function verificarEstadoApiKey() {
+            const savedKey = localStorage.getItem('isgo_private_gemini_key');
+            const warningBanner = document.getElementById('api-warning-banner');
+            const inputField = document.getElementById('input-gemini-key');
+            
+            if (savedKey) {
+                if (warningBanner) warningBanner.style.display = 'none';
+                if (inputField) inputField.value = savedKey;
+            } else {
+                if (warningBanner) warningBanner.style.display = 'block';
+            }
+        }
+
+        window.guardarApiKeyPrivada = function() {
+            const keyInput = document.getElementById('input-gemini-key').value.trim();
+            if (!keyInput) {
+                alert('Por favor introduce una clave válida.');
+                return;
+            }
+            localStorage.setItem('isgo_private_gemini_key', keyInput);
+            alert('¡Clave de Inteligencia Artificial guardada con éxito en este dispositivo!');
+            verificarEstadoApiKey();
+            window.switchView('consultor');
+        }
+
+        // --- CHAT INTERACTIVO CON GEMINI 1.5 FLASH INTELIGENTE ---
+        window.enviarMensajeGemini = async function() {
+            const geminiKey = localStorage.getItem('isgo_private_gemini_key');
+            if (!geminiKey) {
+                alert('No has configurado tu Gemini API Key. Dirígete a la pestaña "Ajustes / Keys" para ingresarla de forma segura.');
+                window.switchView('config');
+                return;
+            }
+
+            const inputEl = document.getElementById('chat-user-input');
+            const mensajeUsuario = inputEl.value.trim();
+            if(!mensajeUsuario) return;
+
+            const chatZone = document.getElementById('chat-messages-zone');
+            
+            chatZone.innerHTML += `<div class="chat-msg user">${mensajeUsuario}</div>`;
+            inputEl.value = "";
+            chatZone.scrollTop = chatZone.scrollHeight;
+
+            const loaderId = 'loader-' + Date.now();
+            chatZone.innerHTML += `<div class="chat-msg gemini" id="${loaderId}"><em>IsGo AI pensando...</em></div>`;
+            chatZone.scrollTop = chatZone.scrollHeight;
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: `Eres el consultor de negocios estrella de la plataforma de lealtad "IsGo". Tu objetivo es dar recomendaciones comerciales, tácticas de retención, ideas de posts para redes sociales y mecánicas de puntos personalizadas según el tipo de negocio que te describa el usuario. Sé breve, directo al grano y muy creativo. El usuario te acaba de consultar lo siguiente: ${mensajeUsuario}`
+                            }]
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                document.getElementById(loaderId).remove();
+
+                let respuestaIA = "Lo siento, no pude procesar tu idea de negocio en este momento. Inténtalo de nuevo.";
+                if(data.candidates && data.candidates[0].content.parts[0].text) {
+                    respuestaIA = data.candidates[0].content.parts[0].text;
+                }
+
+                const cardNotifId = 'ai-notif-' + Date.now();
+                const respuestaLimpia = respuestaIA.replace(/\n/g, '<br>').replace(/\*\*/g, '');
+                
+                chatZone.innerHTML += `
+                    <div class="chat-msg gemini">
+                        <div>${respuestaLimpia}</div>
+                        <button onclick="inyectarNotificacionDashboard('${cardNotifId}', \`${respuestaLimpia.replace(/`/g, "'")}\`)" style="margin-top: 10px; background: var(--accent-purple); color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: bold;">
+                            <i class="fa-solid fa-bullhorn"></i> Mandar como Notificación al Dashboard
+                        </button>
+                    </div>
+                `;
+                chatZone.scrollTop = chatZone.scrollHeight;
+
+            } catch (err) {
+                document.getElementById(loaderId).innerHTML = "Error de conexión con Gemini API o clave inválida. Verifica tus credenciales en Ajustes.";
+                console.error(err);
+            }
+        }
+
+        // --- SISTEMA DE ALERTS DIRECTOS AL DASHBOARD CON BOTÓN "X" ---
+        window.inyectarNotificacionDashboard = function(id, contenido) {
+            const zona = document.getElementById('notification-zone');
+            
+            const tarjetaHTML = `
+                <div class="ai-notification" id="${id}">
+                    <div class="ai-notif-content">
+                        <strong>🤖 Estrategia Sugerida por IsGo AI:</strong><br>
+                        ${contenido}
+                    </div>
+                    <button class="ai-notif-close" onclick="document.getElementById('${id}').remove()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            `;
+            
+            zona.innerHTML = tarjetaHTML + zona.innerHTML;
+            alert('¡Estrategia enviada al panel principal! Revisa tu Dashboard.');
+            window.switchView('dashboard');
+        }
+
+        // --- RENDERIZADOR DE INTERFAZ REALTIME ---
+        function renderizarComponentes() {
+            const tbodyC = document.getElementById('tabla-clientes-body');
+            tbodyC.innerHTML = '';
+            globalClientes.forEach(c => {
+                let badgeClass = c.estatus === 'Sistema Activo' ? 'badge-activo' : (c.estatus === 'Página Solicitada' ? 'badge-web' : 'badge-propuesta');
+                tbodyC.innerHTML += `<tr>
+                    <td><strong>${c.negocio}</strong><br><small style="color:var(--text-muted);">${c.nombre}</small></td>
+                    <td><span class="badge ${badgeClass}">${c.estatus}</span></td>
+                    <td><div class="social-actions">
+                        <a href="https://wa.me/52${c.whatsapp}" target="_blank" class="btn-social btn-wa"><i class="fa-brands fa-whatsapp"></i></a>
+                        ${c.insta ? `<a href="https://instagram.com/${c.insta}" target="_blank" class="btn-social btn-ig"><i class="fa-brands fa-instagram"></i></a>`:''}
+                    </div></td>
+                    <td><button onclick="deleteCliente(${c.id})" class="btn-delete"><i class="fa-solid fa-trash"></i></button></td>
+                </tr>`;
+            });
+
+            const tbodyF = document.getElementById('tabla-finanzas-body');
+            tbodyF.innerHTML = '';
+            let ingresos = 0, gastos = 0;
+            globalTransacciones.forEach(t => {
+                if(t.tipo === 'ingreso') ingresos += t.monto; else gastos += t.monto;
+                tbodyF.innerHTML += `<tr>
+                    <td>${t.concepto}</td>
+                    <td style="color:${t.tipo==='ingreso'?'var(--accent-green)':'var(--accent-red)'}">${t.tipo.toUpperCase()}</td>
+                    <td>$${t.monto.toFixed(2)}</td>
+                    <td><button onclick="deleteTransaccion(${t.id})" class="btn-delete"><i class="fa-solid fa-trash"></i></button></td>
+                </tr>`;
+            });
+
+            let balanceNeto = ingresos - gastos;
+            document.getElementById('dash-total-clientes').innerText = globalClientes.length;
+            document.getElementById('dash-balance').innerText = `$${balanceNeto.toFixed(2)}`;
+            document.getElementById('dash-balance').style.color = balanceNeto >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+            
+            const iconoBalance = document.getElementById('dash-balance-icon');
+            if (balanceNeto >= 0) {
+                iconoBalance.style.color = 'var(--accent-green)';
+                iconoBalance.style.backgroundColor = 'rgba(16,185,129,0.1)';
+            } else {
+                iconoBalance.style.color = 'var(--accent-red)';
+                iconoBalance.style.backgroundColor = 'rgba(239,68,68,0.1)';
+            }
+        }
+
+        // --- SISTEMA AUXILIAR NATIVO (ROI, MENÚ Y RUTAS) ---
+        window.calcularROI = function() {
+            const inversion = parseFloat(document.getElementById('roi-inversion').value) || 0;
+            const ganancia = parseFloat(document.getElementById('roi-ganancia').value) || 0;
+            const visitas = parseFloat(document.getElementById('roi-visitas').value) || 1;
+            if (ganancia <= 0 || visitas <= 0) return;
+            document.getElementById('roi-resultado-clientes').innerText = Math.ceil(inversion / (ganancia * visitas));
+        }
+
+        window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('open'); }
+
+        window.switchView = function(view) {
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+            document.getElementById(`view-${view}`).classList.add('active');
+            document.getElementById('sidebar').classList.remove('open');
+            
+            const items = document.querySelectorAll('.menu-item');
+            items.forEach(item => {
+                if(item.innerText.toLowerCase().includes(view === 'consultor' ? 'gemini' : (view === 'config' ? 'ajustes' : view))) {
+                    item.classList.add('active');
+                }
+            });
+        }
+
+        document.getElementById('chat-user-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') enviarMensajeGemini();
+        });
+
+        if (usuarioActivo) {
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+            conectarNubeRealtime();
+        }
+    </script>
+</body>
+</html>
